@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ExamPaper Maker Pro - Question Paper Generator</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts for Urdu & English -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Noto+Nastaliq+Urdu:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* Keep the action header pinned to the viewport without covering the workspace. */
+        #top-navigation { position: fixed; top: 0; left: 0; right: 0; width: 100%; z-index: 1000; }
+        /* Urdu & English Typography Rules */
+        .font-urdu {
+            font-family: 'Noto Nastaliq Urdu', 'Amiri', 'Jameel Noori Nastaliq', serif;
+            line-height: 2.2;
+        }
+        .font-english {
+            font-family: 'Inter', sans-serif;
+            line-height: 1.5;
+        }
+        
+        /* Custom Printable Sheet Dimensions */
+        .paper-sheet {
+            background-color: #ffffff;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            color: #000;
+            margin: 0 auto;
+            position: relative;
+            box-sizing: border-box;
+        }
+        
+        .size-a4 {
+            width: 210mm;
+            min-height: 297mm;
+            padding: 12mm 15mm;
+        }
+        .size-letter {
+            width: 215.9mm;
+            min-height: 279.4mm;
+            padding: 12mm 15mm;
+        }
+        .size-legal {
+            width: 215.9mm;
+            min-height: 355.6mm;
+            padding: 12mm 15mm;
+        }
+        .paper-header-box { direction: inherit; padding: .35rem !important; margin-bottom: .45rem !important; }
+        .paper-header-box h1 { font-size: 1rem !important; line-height: 1.2 !important; }
+        .header-title-row { padding-bottom: .2rem !important; margin-bottom: .2rem !important; }
+        .header-meta { font-size: 10px !important; line-height: 1.35 !important; }
+        .header-student-row { padding-top: .2rem !important; gap: .35rem !important; }
+        #preview-mcqs-list.mcq-layout-two { display:grid !important; grid-template-columns:repeat(2,minmax(0,1fr)) !important; column-gap:.75rem; row-gap:.5rem; }
+        #preview-mcqs-list.mcq-layout-two .mcq-item:nth-child(odd) { border-inline-end:1px solid #9ca3af; padding-inline-end:.5rem; }
+        #preview-mcqs-list.mcq-layout-two .mcq-item:nth-child(even) { padding-inline-start:.35rem; }
+        #preview-mcqs-list.mcq-layout-single { display:block !important; }
+        #preview-mcqs-list.mcq-layout-single .mcq-item { margin-bottom:.45rem; }
+        #preview-mcqs-list .mcq-options { display:grid; grid-template-columns:repeat(var(--option-count,4),minmax(0,1fr)); gap:.2rem; }
+        @media print { #preview-mcqs-list.mcq-layout-two { grid-template-columns:repeat(2,minmax(0,1fr)) !important; } }
+        #preview-subjective-list.subjective-two-columns { display:grid !important; grid-template-columns: repeat(2,minmax(0,1fr)); column-gap: 1rem; row-gap: .5rem; }
+        #preview-subjective-list.subjective-two-columns .subjective-item:nth-child(odd) { border-inline-end: 1px solid #cbd5e1; padding-inline-end: .5rem; }
+        #preview-subjective-list.subjective-two-columns .subjective-item:nth-child(even) { padding-inline-start: .25rem; }
+        @media print { .paper-header-box { padding: 5px !important; margin-bottom: 6px !important; } }
+        .paper-header-box[dir="rtl"] { text-align: right !important; }
+        .paper-header-box[dir="ltr"] { text-align: left !important; }
+        .tab-btn.is-active { background:#1f2937 !important; color:#fff !important; border-color:#111827 !important; }
+        .menu-panel { position:absolute; right:0; top:calc(100% + 6px); min-width:210px; background:#fff; color:#111827; border:1px solid #cbd5e1; border-radius:10px; box-shadow:0 10px 25px rgba(0,0,0,.18); padding:6px; z-index:1100; }
+        .menu-panel button { display:block; width:100%; text-align:left; padding:10px 12px; border-radius:6px; font-size:12px; }
+        .menu-panel button:hover { background:#f1f5f9; }
+        
+        /* Compact Paper Saving Adjustments */
+        .compact-mode.font-urdu {
+            line-height: 1.75 !important;
+        }
+        .compact-mode .mcq-item {
+            margin-bottom: 0.35rem !important;
+        }
+        .compact-mode .subjective-item {
+            margin-bottom: 0.4rem !important;
+        }
+        .compact-mode .paper-header-box {
+            padding: 0.4rem !important;
+            margin-bottom: 0.5rem !important;
+        }
+
+        .download-overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(15,23,42,.72); z-index:3000; padding:20px; backdrop-filter:blur(5px); }
+        .download-card { width:min(360px,100%); background:white; border-radius:22px; padding:28px 24px; text-align:center; box-shadow:0 24px 80px rgba(0,0,0,.3); }
+        .download-spinner { width:54px; height:54px; border:5px solid #d1fae5; border-top-color:#059669; border-radius:50%; margin:0 auto 16px; animation:downloadSpin .8s linear infinite; }
+        @keyframes downloadSpin { to { transform:rotate(360deg); } }
+        .download-track { height:8px; border-radius:999px; background:#e2e8f0; overflow:hidden; margin-top:18px; }
+        .download-track > div { height:100%; width:8%; border-radius:999px; background:linear-gradient(90deg,#059669,#34d399); transition:width .25s ease; }
+        .app-footer { background:#0f172a; color:#cbd5e1; border-radius:16px; margin-top:22px; padding:18px; }
+        .app-footer a, .app-footer button { color:#e2e8f0; text-decoration:none; }
+        .app-footer a:hover, .app-footer button:hover { color:#6ee7b7; }
+        /* Print Stylesheet */
+        @media print {
+            #top-navigation { display: none !important; }
+            body {
+                padding-top: 0 !important;
+                background: white !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .paper-sheet {
+                box-shadow: none !important;
+                border: none !important;
+                width: 100% !important;
+                min-height: auto !important;
+                padding: 0mm !important;
+                margin: 0 !important;
+            }
+            @page {
+                size: A4 portrait;
+                margin: 10mm 12mm 10mm 12mm;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 font-english min-h-screen text-slate-800 flex flex-col">
+
+    <!-- Top Navigation Bar -->
+    <header id="top-navigation" class="no-print bg-slate-900 text-white shadow-md">
+        <div class="max-w-4xl mx-auto px-3 py-2.5">
+            <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center space-x-2">
+                    <div class="bg-emerald-600 text-white p-1.5 rounded-lg flex items-center justify-center w-8 h-8 shadow">
+                        <i class="fa-solid fa-file-pen text-sm"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-sm leading-tight">ExamPaper Maker Pro</h1>
+                        <p class="text-[10px] text-slate-400">Mobile-First Question Paper Builder</p>
+                    </div>
+                </div>
+                <div class="relative">
+                    <button type="button" onclick="toggleAppMenu()" aria-label="Open menu" class="w-9 h-9 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                    <div id="app-menu" class="menu-panel hidden">
+                        <button onclick="showInfo('privacy')"><i class="fa-solid fa-shield-halved mr-2"></i>Privacy Policy</button>
+                        <button onclick="showInfo('about')"><i class="fa-solid fa-circle-info mr-2"></i>About Us</button>
+                        <button onclick="showInfo('contact')"><i class="fa-solid fa-envelope mr-2"></i>Contact Developer</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Equal-Sized Top Action Buttons Grid -->
+            <div class="grid grid-cols-4 gap-1.5 text-center">
+                <button onclick="loadSampleData()" class="py-2 px-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs font-semibold transition flex flex-col items-center justify-center gap-1 border border-slate-700">
+                    <i class="fa-solid fa-wand-magic-sparkles text-amber-400 text-xs"></i>
+                    <span>Sample</span>
+                </button>
+                <button onclick="resetForm()" class="py-2 px-1 bg-rose-900/60 hover:bg-rose-800 text-rose-200 rounded text-xs font-semibold transition flex flex-col items-center justify-center gap-1 border border-rose-700/50">
+                    <i class="fa-solid fa-trash-can text-xs"></i>
+                    <span>Clear</span>
+                </button>
+                <button onclick="prepareWordDownload()" class="py-2 px-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-semibold transition flex flex-col items-center justify-center gap-1 shadow">
+                    <i class="fa-solid fa-file-word text-xs"></i>
+                    <span>MS Word</span>
+                </button>
+                <button onclick="preparePrint()" class="py-2 px-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-semibold transition flex flex-col items-center justify-center gap-1 shadow">
+                    <i class="fa-solid fa-print text-xs"></i>
+                    <span>PDF / Print</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <div class="flex-1 max-w-4xl w-full mx-auto p-3 flex flex-col pb-16">
+
+        <!-- Step / Tab Navigation Bar -->
+        <div class="no-print bg-white rounded-xl shadow-sm border border-slate-200 p-1 grid grid-cols-5 text-xs font-semibold mb-3">
+            <button onclick="switchTab('header')" id="tab-btn-header" class="tab-btn is-active py-2 px-1 rounded-lg text-center transition">Header</button>
+            <button onclick="switchTab('mcqs')" id="tab-btn-mcqs" class="tab-btn py-2 px-1 rounded-lg text-center transition">MCQs</button>
+            <button onclick="switchTab('subjective')" id="tab-btn-subjective" class="tab-btn py-2 px-1 rounded-lg text-center transition">Subjective</button>
+            <button onclick="switchTab('settings')" id="tab-btn-settings" class="tab-btn py-2 px-1 rounded-lg text-center transition">Layout</button>
+            <button onclick="switchTab('preview')" id="tab-btn-preview" class="tab-btn py-2 px-1 rounded-lg text-center transition"><i class="fa-solid fa-eye mr-0.5"></i> Preview</button>
+        </div>
+
+        <!-- TAB 1: HEADER METADATA -->
+        <div id="tab-header" class="tab-content bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
+            <h3 class="font-bold text-slate-800 text-xs border-b pb-2 flex justify-between items-center">
+                <span><i class="fa-solid fa-school text-emerald-600 mr-1"></i> Step 1: Header Information</span>
+                <span class="text-emerald-600 font-bold">1 / 4</span>
+            </h3>
+            <div class="space-y-3 text-xs">
+                <!-- Paper Language Medium Selector -->
+                <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                    <label class="block font-semibold text-slate-800 mb-1">Paper Language Medium</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="setPaperMedium('urdu')" id="medium-btn-urdu" class="py-2 px-3 border rounded-lg font-bold text-center transition bg-emerald-600 text-white border-emerald-600">
+                            Urdu Medium (RTL)
+                        </button>
+                        <button onclick="setPaperMedium('english')" id="medium-btn-english" class="py-2 px-3 border rounded-lg font-bold text-center transition bg-white text-slate-700 border-slate-300">
+                            English Medium (LTR)
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-medium text-slate-700 mb-1">Exam Title</label>
+                    <input type="text" id="input-exam-title" oninput="renderPaper()" class="w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Month Test">
+                </div>
+
+                <div>
+                    <label class="block font-medium text-slate-700 mb-1">School Name</label>
+                    <input type="text" id="input-school-name" oninput="renderPaper()" class="w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" placeholder="GHS ISLAMIA MILLAT MAMDANA">
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block font-medium text-slate-700 mb-1">Subject</label>
+                        <input type="text" id="input-subject" oninput="renderPaper()" class="w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Islamiat / Computer">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-700 mb-1">Class / Grade</label>
+                        <input type="text" id="input-grade" oninput="renderPaper()" class="w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Grade 8">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block font-medium text-slate-700 mb-1">Total Marks</label>
+                        <input type="number" id="input-total-marks" oninput="renderPaper()" class="w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-emerald-700" placeholder="50">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-700 mb-1">Time Allowed</label>
+                        <input type="text" id="input-time" oninput="renderPaper()" class="w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" placeholder="1 Hour">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-700 mb-1">Date</label>
+                        <input type="date" id="input-date" onchange="renderPaper()" class="w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="pt-2 border-t flex justify-end">
+                <button onclick="switchTab('mcqs')" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg">Next (MCQs) &rarr;</button>
+            </div>
+        </div>
+
+        <!-- TAB 2: MCQS -->
+        <div id="tab-mcqs" class="tab-content hidden bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
+            <div class="flex items-center justify-between border-b pb-2">
+                <h3 class="font-bold text-slate-800 text-xs">Step 2: Multiple Choice Questions (MCQs)</h3>
+                <button onclick="addMcq()" class="px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white rounded font-bold shadow-sm flex items-center gap-1">
+                    <i class="fa-solid fa-plus"></i> Add MCQ
+                </button>
+            </div>
+            <div id="mcq-inputs-list" class="space-y-3 max-h-[60vh] overflow-y-auto pr-1"></div>
+            <div class="pt-2 border-t flex justify-between items-center">
+                <button onclick="switchTab('header')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg">&larr; Back</button>
+                <button onclick="switchTab('subjective')" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg">Next (Subjective) &rarr;</button>
+            </div>
+        </div>
+
+        <!-- TAB 3: SUBJECTIVE QUESTIONS -->
+        <div id="tab-subjective" class="tab-content hidden bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
+            <div class="flex items-center justify-between border-b pb-2">
+                <h3 class="font-bold text-slate-800 text-xs">Step 3: Subjective Questions</h3>
+                <button onclick="addMainQuestion()" class="px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white rounded font-bold shadow-sm flex items-center gap-1">
+                    <i class="fa-solid fa-plus"></i> Add Question
+                </button>
+            </div>
+            <div id="subjective-inputs-list" class="space-y-3 max-h-[60vh] overflow-y-auto pr-1"></div>
+            <div class="pt-2 border-t flex justify-between items-center">
+                <button onclick="switchTab('mcqs')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg">&larr; Back</button>
+                <button onclick="switchTab('settings')" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg">Next (Layout) &rarr;</button>
+            </div>
+        </div>
+
+        <!-- TAB 4: LAYOUT SETTINGS -->
+        <div id="tab-settings" class="tab-content hidden bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
+            <h3 class="font-bold text-slate-800 text-xs border-b pb-2">Step 4: Layout & Formatting Settings</h3>
+            <div class="space-y-3 text-xs">
+                <div class="rounded-lg bg-slate-50 border p-2 text-slate-700"><span class="font-semibold">Paper font size:</span> 12 px (fixed)</div>
+                <div>
+                    <label class="block font-medium text-slate-700 mb-1">Options per MCQ</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="setMcqOptionCount(2)" id="btn-opt-2" class="p-2 border rounded-lg text-center font-medium bg-slate-50 text-slate-600">2 Options</button>
+                        <button onclick="setMcqOptionCount(4)" id="btn-opt-4" class="p-2 border rounded-lg text-center font-medium bg-emerald-50 border-emerald-500 text-emerald-700">4 Options</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-700 mb-1">MCQs Layout</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="setMcqLayout(1)" id="btn-mcq-layout-1" class="p-2 border rounded-lg text-center font-medium bg-emerald-50 border-emerald-500 text-emerald-700">Single Column</button>
+                        <button onclick="setMcqLayout(2)" id="btn-mcq-layout-2" class="p-2 border rounded-lg text-center font-medium bg-slate-50 text-slate-600">Double Column</button>
+                    </div>
+                    <p class="text-[11px] text-slate-500 mt-1">Double column divides the MCQ section into two equal columns with a vertical separator.</p>
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-700 mb-1">Subjective Questions Layout</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="setSubjectiveColumns(1)" id="btn-subj-col-1" class="p-2 border rounded-lg text-center font-medium bg-emerald-50 border-emerald-500 text-emerald-700">1 Column</button>
+                        <button onclick="setSubjectiveColumns(2)" id="btn-subj-col-2" class="p-2 border rounded-lg text-center font-medium bg-slate-50 text-slate-600">2 Columns</button>
+                    </div>
+                    <p class="text-[11px] text-slate-500 mt-1">Optional: display subjective questions in two columns on the final paper.</p>
+                </div>
+                <div class="pt-2 border-t">
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="checkbox" id="setting-compact-mode" onchange="updatePaperSettings()" class="w-4 h-4 text-emerald-600 rounded">
+                        <span class="font-medium text-slate-800">Compact Paper-Saving Mode</span>
+                    </label>
+                    <p class="text-[11px] text-slate-500 mt-1 ml-6">Reduces vertical padding and spacing to fit content on a single page.</p>
+                </div>
+                <div class="pt-2 border-t">
+                    <label class="block font-medium text-slate-700 mb-1">Page Size</label>
+                    <select id="setting-page-size" onchange="updatePaperSettings()" class="w-full p-2 border rounded-lg outline-none">
+                        <option value="size-a4">A4 Standard (210mm x 297mm)</option>
+                        <option value="size-letter">Letter (8.5" x 11")</option>
+                        <option value="size-legal">Legal (8.5" x 14")</option>
+                    </select>
+                </div>
+            </div>
+            <div class="pt-2 border-t flex justify-between items-center">
+                <button onclick="switchTab('subjective')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg">&larr; Back</button>
+                <button onclick="switchTab('preview')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg shadow flex items-center gap-1">
+                    <i class="fa-solid fa-eye"></i> View Paper Preview
+                </button>
+            </div>
+        </div>
+
+        <!-- TAB 5: DEDICATED FULL SCREEN PREVIEW TAB -->
+        <div id="tab-preview" class="tab-content hidden space-y-3">
+            <div class="bg-emerald-900 text-white p-3 rounded-xl flex items-center justify-between no-print shadow">
+                <span class="text-xs font-bold flex items-center gap-1.5"><i class="fa-solid fa-eye"></i> Final Exam Paper Preview</span>
+                <button onclick="switchTab('header')" class="px-3 py-1 bg-white/20 hover:bg-white/30 text-white rounded text-xs font-medium transition">&larr; Return to Editing</button>
+            </div>
+
+            <!-- Printable Sheet Container -->
+            <div class="w-full overflow-x-auto pb-6 flex justify-center">
+                <div id="paper-sheet" class="paper-sheet size-a4 text-slate-900 border border-slate-300">
+                    
+                    <!-- Header Box -->
+                    <div id="preview-paper-header" class="paper-header-box border-2 border-slate-900 p-3 mb-4 rounded-sm">
+                        <div class="header-title-row pb-2 mb-2 text-center">
+                            <h1 id="preview-exam-title" class="font-bold text-xl uppercase tracking-wide font-english text-slate-900">Month Test</h1>
+                            <div class="flex items-center justify-center gap-4 text-sm font-semibold mt-1">
+                                <span id="preview-subject-grade" class="text-lg">Islamiat Grade 8</span>
+                            </div>
+                        </div>
+                        <div class="header-meta text-xs font-medium space-y-1.5">
+                            <div id="preview-meta-row" class="flex flex-wrap items-center justify-around pb-1 px-1">
+                                <div><span id="preview-total-label" class="font-bold">Total Marks:</span> <span id="preview-total-info">50</span></div>
+                                <div><span id="preview-time-label" class="font-bold">Time Allowed:</span> <span id="preview-time-info">1 Hour</span></div>
+                            </div>
+                            <div class="text-center pt-0.5 px-1">
+                                <span id="preview-school" class="font-bold">GHS ISLAMIA MILLAT MAMDANA</span>
+                            </div>
+                            <div id="preview-student-row" class="header-student-row grid grid-cols-12 gap-2 pt-2 text-xs font-semibold">
+                                <div class="col-span-5 flex items-center gap-1"><span id="preview-name-label">Name</span><span class="flex-1"></span></div>
+                                <div class="col-span-4 flex items-center gap-1"><span id="preview-roll-label">Roll No</span><span class="flex-1"></span></div>
+                                <div class="col-span-3 flex items-center gap-1"><span id="preview-section-label">Section</span><span class="flex-1"></span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Part I: Objective Section -->
+                    <div id="preview-mcq-section" class="mb-5">
+                        <div id="preview-obj-title" class="text-center font-bold text-base pb-1 mb-3">
+                            Part I: Objective Questions
+                        </div>
+                        <div id="preview-mcqs-list" class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm"></div>
+                    </div>
+
+                    <!-- Part II: Subjective Section -->
+                    <div id="preview-subjective-section" class="mb-4">
+                        <div id="preview-subj-title" class="text-center font-bold text-base pb-1 mb-3 pt-2">
+                            Part II: Subjective Questions
+                        </div>
+                        <div id="preview-subjective-list" class="space-y-4 text-sm"></div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <footer class="app-footer no-print max-w-4xl w-[calc(100%-1.5rem)] mx-auto mb-4">
+        <div class="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+            <div><div class="font-bold text-white">ExamPaper Maker Pro</div><p class="text-xs mt-1">Create, format and print school examination papers.</p><p class="text-[11px] text-slate-400 mt-2">Developed by Shehzad Ali</p></div>
+            <div class="flex flex-wrap gap-x-4 gap-y-2 text-xs">
+                <button onclick="showInfo('privacy')">Privacy Policy</button>
+                <button onclick="showInfo('about')">About Us</button>
+                <button onclick="showInfo('contact')">Contact</button>
+                <a href="mailto:starlancer789@gmail.com?subject=ExamPaper%20Maker%20Pro">Email Developer</a>
+            </div>
+        </div>
+        <div class="border-t border-slate-700 mt-4 pt-3 text-[10px] text-slate-400 flex flex-wrap justify-between gap-2"><span>© <span id="footer-year"></span> ExamPaper Maker Pro</span><span>Privacy-respecting, browser-based paper builder</span></div>
+    </footer>
+    <div id="download-overlay" class="download-overlay hidden" role="status" aria-live="polite">
+        <div class="download-card"><div class="download-spinner"></div><h3 id="download-title" class="text-lg font-bold text-slate-900">Preparing your paper</h3><p id="download-message" class="text-sm text-slate-500 mt-2">Updating the latest content and formatting…</p><div class="download-track"><div id="download-progress"></div></div><p id="download-percent" class="text-xs font-semibold text-emerald-700 mt-2">10%</p></div>
+    </div>
+
+    <!-- JSZip creates a genuine .docx package for Microsoft Word -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- Application JavaScript Code -->
+    <script>
+        // Core Data State
+        let paperData = {
+            examTitle: "Month Test",
+            schoolName: "GHS ISLAMIA MILLAT MAMDANA",
+            subject: "Islamiat",
+            grade: "Grade 8",
+            totalMarks: 50,
+            timeAllowed: "1 Hour",
+            examDate: "",
+            fontSize: 12,
+            mcqColumns: 1,
+            mcqLayout: 1,
+            mcqOptionCount: 4,
+            subjectiveColumns: 1,
+            compactMode: false,
+            pageSize: "size-a4",
+            medium: "urdu", // 'urdu' or 'english'
+            mcqs: [],
+            subjective: []
+        };
+
+        // Window Load Initialization
+        function syncFixedHeaderSpace() {
+            const header = document.getElementById('top-navigation');
+            if (header && !window.matchMedia('print').matches) document.body.style.paddingTop = header.offsetHeight + 'px';
+        }
+
+        window.onload = function() {
+            syncFixedHeaderSpace();
+            window.addEventListener('resize', syncFixedHeaderSpace);
+            if ('ResizeObserver' in window) new ResizeObserver(syncFixedHeaderSpace).observe(document.getElementById('top-navigation'));
+            clearToPlaceholders(); 
+            
+            // Prevent accidental refresh/close warning
+            window.addEventListener('beforeunload', function (e) {
+                if (paperData.mcqs.length > 0 || paperData.subjective.length > 0) {
+                    e.preventDefault();
+                    e.returnValue = 'You have unsaved changes in your paper layout!';
+                    return e.returnValue;
+                }
+            });
+        };
+
+        // Set Default Placeholders
+        function clearToPlaceholders() {
+            paperData.mcqs = [{ id: 1, question: "", options: ["", "", "", ""] }];
+            paperData.subjective = [{ id: 11, title: paperData.medium === 'urdu' ? "سوال نمبر 11" : "Question No 11", parts: [{ text: "", marks: 5 }] }];
+            populateHeaderInputs();
+            renderMcqInputs();
+            renderSubjectiveInputs();
+            renderPaper();
+        }
+
+        // Paper Medium Toggle
+        function setPaperMedium(medium) {
+            paperData.medium = medium;
+            const urduBtn = document.getElementById('medium-btn-urdu');
+            const englishBtn = document.getElementById('medium-btn-english');
+
+            if (medium === 'urdu') {
+                urduBtn.className = "py-2 px-3 border rounded-lg font-bold text-center transition bg-emerald-600 text-white border-emerald-600";
+                englishBtn.className = "py-2 px-3 border rounded-lg font-bold text-center transition bg-white text-slate-700 border-slate-300";
+            } else {
+                englishBtn.className = "py-2 px-3 border rounded-lg font-bold text-center transition bg-emerald-600 text-white border-emerald-600";
+                urduBtn.className = "py-2 px-3 border rounded-lg font-bold text-center transition bg-white text-slate-700 border-slate-300";
+            }
+            renderMcqInputs();
+            renderSubjectiveInputs();
+            renderPaper();
+        }
+
+        // Tab Navigation Switcher
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('is-active'));
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            document.getElementById(`tab-btn-${tabId}`).classList.add('is-active');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Load Preset Sample Data
+        function hasUserData() {
+            const headerValues = ['input-exam-title','input-school-name','input-subject','input-grade','input-total-marks','input-time']
+                .map(id => (document.getElementById(id)?.value || '').trim());
+            const meaningfulHeader = headerValues.some((v, i) => v && !['Month Test','GHS ISLAMIA MILLAT MAMDANA','Islamiat','Grade 8','50','1 Hour'][i].includes(v));
+            const questionData = paperData.mcqs.some(m => m.question.trim() || m.options.some(o => String(o || '').trim())) ||
+                paperData.subjective.some(q => q.parts.some(p => String(p.text || '').trim()));
+            return meaningfulHeader || questionData;
+        }
+
+        function loadSampleData() {
+            if (hasUserData() && !confirm('Loading the sample Computer Science paper will replace your current paper and all its questions. Continue?')) return;
+            paperData = {
+                examTitle: 'ماہانہ ٹیسٹ',
+                schoolName: 'گورنمنٹ اسلامیہ ملت ہائی سکول ممدانہ',
+                subject: 'کمپیوٹر سائنس',
+                grade: 'جماعت نہم',
+                totalMarks: 25,
+                timeAllowed: '30 منٹ',
+                examDate: new Date().toISOString().split('T')[0],
+                fontSize: 12,
+                mcqColumns: 1,
+            mcqLayout: 1,
+            mcqOptionCount: 4,
+            subjectiveColumns: 1,
+                compactMode: false,
+                pageSize: 'size-a4',
+                medium: 'urdu',
+                mcqs: [
+                    { id: 1, question: 'کمپیوٹر کا دماغ کسے کہا جاتا ہے؟', options: ['سی پی یو', 'مانیٹر', 'کی بورڈ', 'ماؤس'] },
+                    { id: 2, question: 'ڈیٹا کی سب سے چھوٹی اکائی کون سی ہے؟', options: ['بائٹ', 'بٹ', 'کلو بائٹ', 'میگا بائٹ'] },
+                    { id: 3, question: 'ان پٹ ڈیوائس کون سی ہے؟', options: ['مانیٹر', 'پرنٹر', 'کی بورڈ', 'اسپیکر'] },
+                    { id: 4, question: 'آپریٹنگ سسٹم کی مثال کون سی ہے؟', options: ['ونڈوز', 'ایم ایس ورڈ', 'پینٹ', 'کیلکولیٹر'] },
+                    { id: 5, question: 'انٹرنیٹ پر ویب صفحات دیکھنے کے لیے کیا استعمال ہوتا ہے؟', options: ['براؤزر', 'کمپائلر', 'ڈ्रائیور', 'ایڈیٹر'] }
+                ],
+                subjective: [
+                    { id: 1, title: 'مختصر سوالات (Short Questions)', parts: [
+                        { text: 'کمپیوٹر کی تعریف لکھیں۔', marks: 2 },
+                        { text: 'ہارڈویئر اور سافٹ ویئر میں فرق لکھیں۔', marks: 2 },
+                        { text: 'ان پٹ ڈیوائسز کی دو مثالیں دیں۔', marks: 2 },
+                        { text: 'آپریٹنگ سسٹم کیا ہے؟', marks: 2 },
+                        { text: 'انٹرنیٹ کے دو فوائد لکھیں۔', marks: 2 }
+                    ]},
+                    { id: 2, title: 'تفصیلی سوال (Long Question)', parts: [
+                        { text: 'کمپیوٹر کے بنیادی حصوں کی وضاحت کریں۔', marks: 5 },
+                        { text: 'ان پٹ اور آؤٹ پٹ ڈیوائسز کی تعریف مثالوں سمیت لکھیں۔', marks: 5 }
+                    ]}
+                ]
+            };
+            populateHeaderInputs();
+            setPaperMedium('urdu');
+            paperData.fontSize = 12;
+            document.getElementById('setting-compact-mode').checked = paperData.compactMode;
+            document.getElementById('setting-page-size').value = paperData.pageSize;
+            setMcqOptionCount(4);
+            setMcqLayout(1);
+            setSubjectiveColumns(1);
+            renderMcqInputs();
+            renderSubjectiveInputs();
+            renderPaper();
+            switchTab('preview');
+        }
+
+        function populateHeaderInputs() {
+            document.getElementById('input-exam-title').value = paperData.examTitle;
+            document.getElementById('input-school-name').value = paperData.schoolName;
+            document.getElementById('input-subject').value = paperData.subject;
+            document.getElementById('input-grade').value = paperData.grade;
+            document.getElementById('input-total-marks').value = paperData.totalMarks;
+            document.getElementById('input-time').value = paperData.timeAllowed;
+            document.getElementById('input-date').value = paperData.examDate;
+        }
+
+        // Render Sidebar MCQ Input Controls
+        function renderMcqInputs() {
+            const container = document.getElementById('mcq-inputs-list');
+            container.innerHTML = '';
+            paperData.mcqs.forEach((mcq, index) => {
+                const box = document.createElement('div');
+                box.className = 'border border-slate-200 bg-slate-50 p-3 rounded-lg text-xs space-y-2.5 shadow-sm';
+                box.dir = paperData.medium === 'urdu' ? 'rtl' : 'ltr';
+                box.innerHTML = `
+                    <div class="flex items-center justify-between font-bold border-b pb-1.5">
+                        <span class="text-slate-800">MCQ #${index + 1}</span>
+                        <button onclick="removeMcq(${index})" class="bg-rose-100 text-rose-700 hover:bg-rose-200 px-2.5 py-1 rounded font-bold transition flex items-center gap-1">
+                            <i class="fa-solid fa-trash"></i> Delete
+                        </button>
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-700 mb-1">Question Statement</label>
+                        <textarea dir="${paperData.medium === 'urdu' ? 'rtl' : 'ltr'}" style="text-align:${paperData.medium === 'urdu' ? 'right' : 'left'}" oninput="updateMcq(${index}, 'question', this.value)" class="w-full min-h-[70px] p-2 border rounded outline-none text-xs focus:ring-1 focus:ring-emerald-500" placeholder="Type question statement here...">${escapeHtml(mcq.question)}</textarea>
+                    </div>
+                    <div class="space-y-1.5 border-t pt-2">
+                        <label class="block font-semibold text-slate-700 text-[11px]">Options (Stacked vertically for long text):</label>
+                        ${Array.from({length: paperData.mcqOptionCount === 2 ? 2 : 4}, (_, i) => i).map(i => `
+                            <div class="flex items-center gap-1.5">
+                                <span class="font-bold text-slate-600 w-6 text-center text-[11px]">(${['a','b','c','d'][i]})</span>
+                                <input type="text" value="${escapeHtml(mcq.options[i] || '')}" oninput="updateMcqOption(${index}, ${i}, this.value)" class="flex-1 p-1.5 border rounded outline-none text-xs focus:ring-1 focus:ring-emerald-500" placeholder="Option ${['A','B','C','D'][i]}">
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                container.appendChild(box);
+            });
+        }
+
+        // Render Sidebar Subjective Input Controls
+        function renderSubjectiveInputs() {
+            const container = document.getElementById('subjective-inputs-list');
+            container.innerHTML = '';
+            paperData.subjective.forEach((q, qIndex) => {
+                const box = document.createElement('div');
+                box.className = 'border border-slate-200 bg-slate-50 p-3 rounded-lg text-xs space-y-3 shadow-sm';
+                box.dir = paperData.medium === 'urdu' ? 'rtl' : 'ltr';
+                let partsHTML = q.parts.map((part, pIndex) => `
+                    <div class="space-y-1 border-t pt-2 border-slate-200">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-slate-700">Sub Part (${toRoman(pIndex + 1)})</span>
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-[10px]">Marks:</span>
+                                <input type="number" value="${part.marks || ''}" oninput="updateSubPart(${qIndex}, ${pIndex}, 'marks', this.value)" class="w-12 p-1 border rounded text-center font-bold">
+                                <button onclick="removeSubPart(${qIndex}, ${pIndex})" class="bg-rose-100 text-rose-700 hover:bg-rose-200 px-2 py-0.5 rounded font-bold"><i class="fa-solid fa-xmark"></i> Delete</button>
+                            </div>
+                        </div>
+                        <textarea dir="${paperData.medium === 'urdu' ? 'rtl' : 'ltr'}" style="text-align:${paperData.medium === 'urdu' ? 'right' : 'left'}" oninput="updateSubPart(${qIndex}, ${pIndex}, 'text', this.value)" class="w-full min-h-[60px] p-2 border rounded outline-none text-xs focus:ring-1 focus:ring-emerald-500" placeholder="Enter sub-question details...">${escapeHtml(part.text || '')}</textarea>
+                    </div>
+                `).join('');
+
+                box.innerHTML = `
+                    <div class="flex items-center justify-between font-bold border-b pb-1.5">
+                        <input type="text" value="${escapeHtml(q.title || '')}" oninput="updateMainQuestionTitle(${qIndex}, this.value)" class="font-bold bg-transparent border-b border-dashed outline-none text-xs text-slate-800" placeholder="Question Title (e.g. Question No 11)">
+                        <div class="flex items-center gap-1.5">
+                            <button onclick="addSubPart(${qIndex})" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-bold shadow-sm flex items-center gap-1">
+                                <i class="fa-solid fa-plus"></i> Sub Part
+                            </button>
+                            <button onclick="removeMainQuestion(${qIndex})" class="bg-rose-100 text-rose-700 hover:bg-rose-200 px-2.5 py-1 rounded font-bold"><i class="fa-solid fa-trash"></i> Delete</button>
+                        </div>
+                    </div>
+                    <div class="space-y-2">${partsHTML}</div>
+                `;
+                container.appendChild(box);
+            });
+        }
+
+        // MCQ Actions
+        function addMcq() {
+            paperData.mcqs.push({ id: paperData.mcqs.length + 1, question: "", options: ["", "", "", ""] });
+            renderMcqInputs(); renderPaper();
+        }
+        function removeMcq(i) { paperData.mcqs.splice(i, 1); renderMcqInputs(); renderPaper(); }
+        function updateMcq(i, f, v) { paperData.mcqs[i][f] = v; renderPaper(); }
+        function updateMcqOption(qI, oI, v) { paperData.mcqs[qI].options[oI] = v; renderPaper(); }
+
+        // Subjective Actions
+        function addMainQuestion() {
+            const nextNum = 11 + paperData.subjective.length;
+            const defaultTitle = paperData.medium === 'urdu' ? `سوال نمبر ${nextNum}` : `Question No ${nextNum}`;
+            paperData.subjective.push({ id: nextNum, title: defaultTitle, parts: [{ text: "", marks: 5 }] });
+            renderSubjectiveInputs(); renderPaper();
+        }
+        function removeMainQuestion(i) { paperData.subjective.splice(i, 1); renderSubjectiveInputs(); renderPaper(); }
+        function updateMainQuestionTitle(i, v) { paperData.subjective[i].title = v; renderPaper(); }
+        function addSubPart(qI) { paperData.subjective[qI].parts.push({ text: "", marks: 5 }); renderSubjectiveInputs(); renderPaper(); }
+        function removeSubPart(qI, pI) { paperData.subjective[qI].parts.splice(pI, 1); renderSubjectiveInputs(); renderPaper(); }
+        function updateSubPart(qI, pI, f, v) { paperData.subjective[qI].parts[pI][f] = f === 'marks' ? parseFloat(v) || 0 : v; renderPaper(); }
+
+        // Paper Settings Controllers
+        function updatePaperSettings() {
+            paperData.fontSize = 12;
+            paperData.compactMode = document.getElementById('setting-compact-mode').checked;
+            paperData.pageSize = document.getElementById('setting-page-size').value;
+            renderPaper();
+        }
+
+        function setMcqOptionCount(count) {
+            paperData.mcqOptionCount = count === 2 ? 2 : 4;
+            [2,4].forEach(n => { const b=document.getElementById('btn-opt-'+n); b.className = n === paperData.mcqOptionCount ? "p-2 border rounded-lg text-center font-medium bg-emerald-50 border-emerald-500 text-emerald-700" : "p-2 border rounded-lg text-center font-medium bg-slate-50 text-slate-600"; });
+            renderMcqInputs();
+            renderPaper();
+        }
+        function setMcqLayout(cols) {
+            paperData.mcqLayout = cols === 2 ? 2 : 1;
+            [1,2].forEach(n => { const b=document.getElementById('btn-mcq-layout-'+n); b.className = n === paperData.mcqLayout ? "p-2 border rounded-lg text-center font-medium bg-emerald-50 border-emerald-500 text-emerald-700" : "p-2 border rounded-lg text-center font-medium bg-slate-50 text-slate-600"; });
+            renderPaper();
+        }
+
+        function setSubjectiveColumns(cols) {
+            paperData.subjectiveColumns = cols;
+            document.getElementById('btn-subj-col-1').className = cols === 1 ? "p-2 border rounded-lg text-center font-medium bg-emerald-50 border-emerald-500 text-emerald-700" : "p-2 border rounded-lg text-center font-medium bg-slate-50 text-slate-600";
+            document.getElementById('btn-subj-col-2').className = cols === 2 ? "p-2 border rounded-lg text-center font-medium bg-emerald-50 border-emerald-500 text-emerald-700" : "p-2 border rounded-lg text-center font-medium bg-slate-50 text-slate-600";
+            renderPaper();
+        }
+
+        // Live Paper Rendering
+        function renderPaper() {
+            paperData.examTitle = document.getElementById('input-exam-title').value.trim() || "Month Test";
+            paperData.schoolName = document.getElementById('input-school-name').value.trim() || "GHS ISLAMIA MILLAT MAMDANA";
+            paperData.subject = document.getElementById('input-subject').value.trim() || (paperData.medium === 'urdu' ? "اسلامیات" : "Islamiat");
+            paperData.grade = document.getElementById('input-grade').value.trim() || "Grade 8";
+            paperData.totalMarks = document.getElementById('input-total-marks').value || "50";
+            paperData.timeAllowed = document.getElementById('input-time').value.trim() || "1 Hour";
+
+            const sheet = document.getElementById('paper-sheet');
+            sheet.dir = paperData.medium === 'urdu' ? 'rtl' : 'ltr';
+            const paperHeader = document.getElementById('preview-paper-header');
+            paperHeader.dir = paperData.medium === 'urdu' ? 'rtl' : 'ltr';
+            paperHeader.style.textAlign = paperData.medium === 'urdu' ? 'right' : 'left';
+            let pageRule = document.getElementById('dynamic-page-rule');
+            if (!pageRule) { pageRule = document.createElement('style'); pageRule.id = 'dynamic-page-rule'; document.head.appendChild(pageRule); }
+            const pageLabel = paperData.pageSize === 'size-a4' ? 'A4' : paperData.pageSize === 'size-legal' ? 'Legal' : 'Letter';
+            pageRule.textContent = `@media print { @page { size: ${pageLabel} portrait; margin: 10mm 12mm; } }`;
+            document.getElementById('preview-exam-title').style.textAlign = 'center';
+            document.getElementById('preview-subject-grade').style.textAlign = 'center';
+            document.getElementById('preview-total-info').parentElement.style.direction = paperData.medium === 'urdu' ? 'rtl' : 'ltr';
+            document.getElementById('preview-time-info').parentElement.style.direction = paperData.medium === 'urdu' ? 'rtl' : 'ltr';
+            sheet.className = `paper-sheet ${paperData.pageSize} ${paperData.medium === 'urdu' ? 'font-urdu' : 'font-english'} text-slate-900 border border-slate-300 ${paperData.compactMode ? 'compact-mode' : ''}`;
+            sheet.style.fontSize = '12px';
+
+            document.getElementById('preview-exam-title').innerText = paperData.examTitle;
+            document.getElementById('preview-subject-grade').innerText = `${paperData.subject} ${paperData.grade}`;
+            const isUrduHeader = paperData.medium === 'urdu';
+            document.getElementById('preview-total-info').innerText = paperData.totalMarks;
+            document.getElementById('preview-time-info').innerText = paperData.timeAllowed;
+            document.getElementById('preview-total-label').innerText = isUrduHeader ? 'کل نمبر' : 'Total Marks';
+            document.getElementById('preview-time-label').innerText = isUrduHeader ? 'وقت' : 'Time';
+            document.getElementById('preview-name-label').innerText = isUrduHeader ? 'نام' : 'Name';
+            document.getElementById('preview-roll-label').innerText = isUrduHeader ? 'رول نمبر' : 'Roll No';
+            document.getElementById('preview-section-label').innerText = isUrduHeader ? 'سیکشن' : 'Section';
+            const metaRow = document.getElementById('preview-meta-row');
+            metaRow.style.justifyContent = isUrduHeader ? 'space-between' : 'space-between';
+            metaRow.style.gap = '1rem';
+            metaRow.style.direction = isUrduHeader ? 'rtl' : 'ltr';
+            metaRow.style.textAlign = isUrduHeader ? 'right' : 'left';
+            metaRow.querySelectorAll(':scope > div').forEach(el => { el.style.direction = isUrduHeader ? 'rtl' : 'ltr'; el.style.textAlign = isUrduHeader ? 'right' : 'left'; el.style.whiteSpace = 'nowrap'; });
+            document.getElementById('preview-student-row').style.direction = isUrduHeader ? 'rtl' : 'ltr';
+            document.getElementById('preview-school').innerText = paperData.schoolName;
+
+            document.getElementById('preview-obj-title').innerText = paperData.medium === 'urdu' ? "حسّہ اوّل: معروضی سوالات" : "Part I: Objective Questions";
+            document.getElementById('preview-subj-title').innerText = paperData.medium === 'urdu' ? "حصہ دوم: انشائیہ سوالات" : "Part II: Subjective Questions";
+
+            const mcqsContainer = document.getElementById('preview-mcqs-list');
+            mcqsContainer.className = paperData.mcqLayout === 2 ? "mcq-layout-two text-xs" : "mcq-layout-single text-xs";
+            mcqsContainer.style.setProperty('--option-count', String(paperData.mcqOptionCount || 4));
+            const qPrefix = paperData.medium === 'urdu' ? 'سوال نمبر' : 'Q No.';
+            const optionLetters = ['a','b','c','d'].slice(0, paperData.mcqOptionCount === 2 ? 2 : 4);
+            mcqsContainer.innerHTML = paperData.mcqs.map((mcq, idx) => `
+                <div class="mcq-item pb-2 break-inside-avoid">
+                    <div class="font-bold mb-1"><span>${qPrefix} ${idx + 1}:</span> ${escapeHtml(mcq.question.trim() || '...')}</div>
+                    <div class="mcq-options text-xs text-slate-800 text-center" dir="${paperData.medium === 'urdu' ? 'rtl' : 'ltr'}" style="--option-count:${optionLetters.length}">
+                        ${optionLetters.map((letter, oi) => `<div>(${letter}) ${escapeHtml(mcq.options[oi]?.trim() || '')}</div>`).join('')}
+                    </div>
+                </div>
+            `).join('');
+
+            const subjectiveContainer = document.getElementById('preview-subjective-list');
+            subjectiveContainer.className = paperData.subjectiveColumns === 2 ? 'subjective-two-columns text-sm' : 'space-y-4 text-sm';
+            subjectiveContainer.innerHTML = paperData.subjective.map(q => `
+                <div class="subjective-item pb-3 break-inside-avoid">
+                    <div class="font-bold text-base mb-1.5">${escapeHtml(q.title || 'Question')}</div>
+                    <div class="space-y-1.5 ${paperData.medium === 'urdu' ? 'pr-2' : 'pl-2'}">
+                        ${q.parts.map((p, pIdx) => `
+                            <div class="flex items-baseline justify-between">
+                                <div class="flex items-baseline gap-2">
+                                    <span class="font-bold text-slate-700">(${toRoman(pIdx + 1)})</span>
+                                    <span>${escapeHtml(p.text.trim() || '...')}</span>
+                                </div>
+                                <span class="font-bold text-slate-800 shrink-0 ${paperData.medium === 'urdu' ? 'mr-2' : 'ml-2'}">(${p.marks || 0})</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function showDownloadProgress(title='Preparing your paper') {
+            const overlay=document.getElementById('download-overlay'); overlay.classList.remove('hidden');
+            document.getElementById('download-title').textContent=title;
+            document.getElementById('download-message').textContent='Updating the latest content and formatting…';
+            setDownloadProgress(12); return overlay;
+        }
+        function setDownloadProgress(value, message) {
+            const v=Math.max(0,Math.min(100,value));
+            document.getElementById('download-progress').style.width=v+'%';
+            document.getElementById('download-percent').textContent=Math.round(v)+'%';
+            if(message) document.getElementById('download-message').textContent=message;
+        }
+        function hideDownloadProgress() { document.getElementById('download-overlay').classList.add('hidden'); }
+
+        // Export a genuine Office Open XML .docx file (not HTML renamed as .doc).
+        async function exportToWord() {
+            // Sync every field and re-render immediately before building the document.
+            updatePaperSettings();
+            renderPaper();
+            showDownloadProgress('Creating your Word paper');
+            setDownloadProgress(25, 'Applying 12 px font size and paper layout…');
+            if (typeof JSZip === 'undefined') { hideDownloadProgress(); alert('Word export library could not load. Please connect to the internet and try again.'); return; }
+            const isUrdu = paperData.medium === 'urdu';
+            const esc = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+            const fontScale = 1;
+            const para = (text, bold=false, size=24, align=(isUrdu?'right':'left'), before=0, after=100) => { size=Math.max(16,Math.round(size*fontScale)); return `<w:p><w:pPr><w:jc w:val="${align}"/>${isUrdu?'<w:bidi/>':''}<w:spacing w:before="${before}" w:after="${after}"/></w:pPr><w:r><w:rPr>${bold?'<w:b/>':''}<w:sz w:val="${size}"/>${isUrdu?'<w:rtl/>':''}<w:rFonts w:ascii="${isUrdu?'Noto Nastaliq Urdu':'Arial'}" w:hAnsi="${isUrdu?'Noto Nastaliq Urdu':'Arial'}" w:cs="${isUrdu?'Noto Nastaliq Urdu':'Arial'}"/></w:rPr><w:t xml:space="preserve">${esc(text)}</w:t></w:r></w:p>`; };
+            const parts = [
+                para(paperData.examTitle || 'Exam Paper', true, 32, 'center', 0, 80),
+                para(`${paperData.subject || ''} ${paperData.grade || ''}`, true, 28, 'center'),
+                para(`${isUrdu?'کل نمبر':'Total Marks'}: ${paperData.totalMarks || 50}    |    ${isUrdu?'وقت':'Time'}: ${paperData.timeAllowed || '1 Hour'}`, true, 22, isUrdu?'right':'left'),
+                para(`${paperData.schoolName || ''}`, true, 22, 'center'),
+                para(`${isUrdu?'نام':'Name'}     ${isUrdu?'رول نمبر':'Roll No'}     ${isUrdu?'سیکشن':'Section'}`, false, 20, isUrdu?'right':'left', 0, 220),
+                para(isUrdu?'حصہ اوّل: معروضی سوالات':'Part I: Objective Questions', true, 26, 'center', 150, 120)
+            ];
+            paperData.mcqs.forEach((m,i) => {
+                parts.push(para(`${isUrdu?'سوال نمبر':'Q No.'} ${i+1}: ${m.question || '...'}`, true, 22, isUrdu?'right':'left', 0, 40));
+                const optionLabels = ['a','b','c','d'].slice(0, paperData.mcqOptionCount === 2 ? 2 : 4);
+                parts.push(para(optionLabels.map((label,oi)=>`(${label}) ${m.options?.[oi] || ''}`).join('     '), false, 21, isUrdu?'right':'left', 0, 140));
+            });
+            parts.push(para(isUrdu?'حصہ دوم: انشائیہ سوالات':'Part II: Subjective Questions', true, 26, 'center', 200, 120));
+            paperData.subjective.forEach(q => {
+                parts.push(para(q.title || (isUrdu?'سوال':'Question'), true, 25, isUrdu?'right':'left', 100, 60));
+                (q.parts || []).forEach((part,i) => parts.push(para(`(${toRoman(i+1)}) ${part.text || '...'}    (${part.marks ?? 0})`, false, 22, isUrdu?'right':'left', 0, 80)));
+            });
+            const pageW = paperData.pageSize === 'size-a4' ? 11906 : 12240;
+            const pageH = paperData.pageSize === 'size-a4' ? 16838 : (paperData.pageSize === 'size-legal' ? 20160 : 15840);
+            const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${parts.join('')}<w:sectPr><w:pgSz w:w="${pageW}" w:h="${pageH}"/><w:pgMar w:top="720" w:right="850" w:bottom="720" w:left="850"/></w:sectPr></w:body></w:document>`;
+            const zip = new JSZip();
+            zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`);
+            zip.folder('_rels').file('.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`);
+            zip.folder('word').file('document.xml', documentXml);
+            try {
+                setDownloadProgress(55, 'Packaging the Word document…');
+                const blob = await zip.generateAsync({type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}, meta => setDownloadProgress(55 + meta.percent * 0.4, 'Building Word file… ' + Math.round(meta.percent) + '%'));
+                setDownloadProgress(98, 'Starting your download…');
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                const safe = value => String(value || '').replace(/[\\/:*?"<>|]+/g, '_');
+                a.href = url;
+                a.download = `${safe(paperData.subject || 'Exam')}_Paper_${safe(paperData.grade)}.docx`;
+                document.body.appendChild(a); a.click(); a.remove();
+                setDownloadProgress(100, 'Download started successfully.');
+                setTimeout(() => { URL.revokeObjectURL(url); hideDownloadProgress(); }, 1100);
+            } catch (error) {
+                console.error('Word export failed:', error);
+                hideDownloadProgress(); alert('Word file could not be generated. Please try again.');
+            }
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        function toggleAppMenu() { document.getElementById('app-menu').classList.toggle('hidden'); }
+        function showInfo(type) {
+            document.getElementById('app-menu').classList.add('hidden');
+            const content = {
+                privacy: 'Privacy Policy\nExamPaper Maker Pro runs in your browser. Paper details and questions are processed locally by this page and are not intentionally sent to the developer. External CDN libraries and fonts may connect to their providers. Your downloaded files remain under your control.',
+                about: 'About ExamPaper Maker Pro\nA browser-based tool for preparing and printing school examination papers.\nDeveloper: Shehzad Ali\nEmail: starlancer789@gmail.com',
+                contact: 'Contact Developer\nShehzad Ali\nstarlancer789@gmail.com'
+            };
+            if (type === 'contact') { window.location.href = 'mailto:starlancer789@gmail.com?subject=ExamPaper%20Maker%20Pro'; }
+            else alert(content[type] || content.about);
+        }
+        function preparePrint() {
+            switchTab('preview');
+            setTimeout(() => window.print(), 180);
+        }
+        function prepareWordDownload() {
+            switchTab('preview');
+            // Trigger the .docx download directly from the same user click.
+            exportToWord();
+        }
+        document.addEventListener('click', function(event) {
+            const menu = document.getElementById('app-menu');
+            if (menu && !event.target.closest('#app-menu') && !event.target.closest('[aria-label="Open menu"]')) menu.classList.add('hidden');
+        });
+
+        // Roman Numerals Helper
+        function toRoman(num) {
+            const romanMap = ["", "i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x"];
+            return romanMap[num] || num.toString();
+        }
+
+        // Reset Everything
+        function resetForm() {
+            if (confirm("Are you sure you want to clear all paper data?")) {
+                clearToPlaceholders();
+            }
+        }
+    </script>
+</body>
+</html>
